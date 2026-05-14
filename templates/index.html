@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCA Customer Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism card */
+        .glass {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Header */
+        .page-header {
+            text-align: center;
+            padding: 40px 0 20px;
+            animation: fadeSlideDown 0.8s ease-out;
+        }
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .page-header p { color: #94a3b8; font-size: 0.95rem; margin-top: 6px; }
+
+        /* Tabs */
+        .nav-tabs { border: none; gap: 8px; justify-content: center; margin-bottom: 24px; }
+        .nav-tabs .nav-link {
+            border: none;
+            background: rgba(255,255,255,0.05);
+            color: #94a3b8;
+            border-radius: 12px;
+            padding: 10px 28px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .nav-tabs .nav-link:hover { background: rgba(255,255,255,0.1); color: #e0e0e0; }
+        .nav-tabs .nav-link.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+        }
+
+        /* Tab transition */
+        .tab-pane { animation: fadeIn 0.5s ease-out; }
+        .tab-pane.fade { transition: opacity 0.4s ease; }
+
+        /* Badges */
+        .badge-budget { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+        .badge-impulsive { background: linear-gradient(135deg, #f59e0b, #fb923c); }
+        .badge-premium { background: linear-gradient(135deg, #10b981, #34d399); }
+
+        .badge { padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 0.8rem; }
+
+        /* Point info card */
+        #pointInfo {
+            display: none;
+            animation: scaleIn 0.3s ease-out;
+        }
+        #pointInfo.visible { display: block; }
+
+        /* Table */
+        .table { color: #cbd5e1; font-size: 0.85rem; }
+        .table thead th { color: #94a3b8; border-color: rgba(255,255,255,0.08); font-weight: 600; }
+        .table tbody tr { border-color: rgba(255,255,255,0.05); transition: background 0.2s; cursor: pointer; }
+        .table tbody tr:hover { background: rgba(255,255,255,0.06); }
+
+        /* Progress bars */
+        .progress { background: rgba(255,255,255,0.08); border-radius: 8px; height: 8px; overflow: hidden; }
+
+        /* Sliders */
+        .form-range::-webkit-slider-track { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .form-range::-webkit-slider-thumb { background: #8b5cf6; }
+        .slider-label { font-weight: 600; font-size: 0.85rem; color: #c4b5fd; }
+
+        .form-select {
+            background-color: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #e0e0e0;
+            border-radius: 10px;
+        }
+        .form-select option { background: #1e1b4b; }
+
+        /* Buttons */
+        .btn-glow {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+        }
+        .btn-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(99,102,241,0.5);
+            color: #fff;
+        }
+
+        /* Result card */
+        #simResult { display: none; }
+        #simResult.visible { display: block; animation: scaleIn 0.4s ease-out; }
+        .alert-info {
+            background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.3);
+            color: #c4b5fd;
+            border-radius: 12px;
+        }
+
+        /* Counters */
+        .counter { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+        /* Plotly container */
+        #scatterPlot { border-radius: 12px; overflow: hidden; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+        /* Animations */
+        @keyframes fadeSlideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        .fade-in-up:nth-child(2) { animation-delay: 0.1s; }
+        .fade-in-up:nth-child(3) { animation-delay: 0.2s; }
+        .fade-in-up:nth-child(4) { animation-delay: 0.3s; }
+
+        /* Emoji labels */
+        .type-icon { font-size: 1.2rem; }
+
+        /* ============ GROWTH FORECAST SECTION ============ */
+        #growthForecast { display: none; position: relative; margin-top: 18px; padding: 22px; border-radius: 18px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.10), rgba(16,185,129,0.06));
+            border: 1px solid rgba(167,139,250,0.25);
+            box-shadow: 0 0 40px rgba(139,92,246,0.18), inset 0 0 30px rgba(99,102,241,0.08);
+            overflow: hidden;
+        }
+        #growthForecast.visible { display: block; animation: gfRise 0.7s cubic-bezier(.2,.9,.3,1.2); }
+        @keyframes gfRise { from { opacity:0; transform: translateY(24px) scale(.97);} to { opacity:1; transform:none;} }
+
+        /* Animated background particles / gradient orbs */
+        .gf-bg { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:18px; z-index:0; }
+        .gf-orb { position:absolute; width:260px; height:260px; border-radius:50%; filter: blur(60px); opacity:.35;
+            animation: gfFloat 9s ease-in-out infinite; }
+        .gf-orb.o1 { background:#8b5cf6; top:-80px; left:-60px; }
+        .gf-orb.o2 { background:#10b981; bottom:-100px; right:-60px; animation-delay:-3s; }
+        .gf-orb.o3 { background:#3b82f6; top:40%; left:45%; width:180px; height:180px; animation-delay:-6s; opacity:.2;}
+        @keyframes gfFloat {
+            0%,100% { transform: translate(0,0) scale(1); }
+            50% { transform: translate(30px,-20px) scale(1.08); }
+        }
+        .gf-particles { position:absolute; inset:0; }
+        .gf-particles span { position:absolute; width:4px; height:4px; border-radius:50%;
+            background: rgba(196,181,253,0.7); box-shadow:0 0 8px rgba(167,139,250,0.9);
+            animation: gfPart 7s linear infinite; opacity:0; }
+        @keyframes gfPart {
+            0% { transform: translateY(20px); opacity:0;}
+            20% { opacity:1;}
+            100% { transform: translateY(-280px); opacity:0;}
+        }
+
+        .gf-inner { position:relative; z-index:1; }
+
+        .gf-title { font-weight:800; font-size:1.05rem;
+            background: linear-gradient(90deg,#a78bfa,#60a5fa,#34d399);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            display:flex; align-items:center; gap:8px;
+        }
+        .gf-title .dot { width:8px; height:8px; border-radius:50%; background:#34d399; box-shadow:0 0 12px #34d399; animation: gfPulse 1.6s infinite; }
+        @keyframes gfPulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.4);opacity:.6;} }
+
+        /* Segment upgrade badge */
+        .gf-upgrade { display:flex; align-items:center; justify-content:center; gap:14px; margin:14px 0 18px; flex-wrap:wrap; }
+        .gf-seg { padding:8px 18px; border-radius:12px; font-weight:700; font-size:.95rem; letter-spacing:.3px;
+            border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); }
+        .gf-seg.future { box-shadow: 0 0 24px rgba(52,211,153,0.5), inset 0 0 12px rgba(52,211,153,0.2);
+            border-color: rgba(52,211,153,0.6); animation: gfGlow 2s ease-in-out infinite; }
+        @keyframes gfGlow { 0%,100% { box-shadow:0 0 24px rgba(52,211,153,0.45);} 50% { box-shadow:0 0 38px rgba(52,211,153,0.85);} }
+        .gf-arrow { position:relative; width:60px; height:2px; background: linear-gradient(90deg,#a78bfa,#34d399); border-radius:2px; overflow:visible;}
+        .gf-arrow::after { content:'▶'; position:absolute; right:-4px; top:-9px; color:#34d399; font-size:.8rem; text-shadow:0 0 8px #34d399; }
+        .gf-arrow::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.9),transparent);
+            animation: gfStream 1.8s linear infinite; }
+        @keyframes gfStream { 0%{transform:translateX(-100%);} 100%{transform:translateX(100%);} }
+
+        /* Growth score circular */
+        .gf-grid { display:grid; grid-template-columns: 180px 1fr; gap:18px; align-items:center; }
+        @media (max-width: 720px){ .gf-grid { grid-template-columns: 1fr; } }
+        .gf-score { position:relative; width:160px; height:160px; margin:auto; }
+        .gf-score svg { transform: rotate(-90deg); }
+        .gf-score circle { fill:none; stroke-width:10; }
+        .gf-score .bg { stroke: rgba(255,255,255,0.08); }
+        .gf-score .fg { stroke: url(#gfGrad); stroke-linecap:round; transition: stroke-dashoffset 1.6s cubic-bezier(.2,.9,.3,1); filter: drop-shadow(0 0 6px #8b5cf6);}
+        .gf-score .lbl { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            font-weight:800; }
+        .gf-score .lbl .num { font-size:1.9rem; background:linear-gradient(90deg,#a78bfa,#34d399);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .gf-score .lbl .cap { font-size:.7rem; color:#94a3b8; letter-spacing:1.5px; text-transform:uppercase; }
+
+        /* Feature cards */
+        .gf-cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+        .gf-card { background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+            border-radius:12px; padding:12px; position:relative; overflow:hidden; transition: all .3s; }
+        .gf-card:hover { transform: translateY(-3px); border-color: rgba(167,139,250,0.5); box-shadow:0 8px 24px rgba(99,102,241,0.25);}
+        .gf-card .ico { font-size:1.1rem; }
+        .gf-card .name { font-size:.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+        .gf-card .vals { font-size:.95rem; margin-top:6px; color:#e0e0e0; font-weight:600; }
+        .gf-card .vals .old { color:#94a3b8; text-decoration:line-through; font-weight:500; font-size:.8rem;}
+        .gf-card .vals .arr { color:#a78bfa; margin:0 4px;}
+        .gf-card .pct { display:inline-block; margin-top:6px; font-size:.75rem; padding:2px 8px; border-radius:8px; font-weight:700;
+            background: rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);
+            animation: gfPulseSoft 2.4s ease-in-out infinite;}
+        .gf-card .pct.down { background: rgba(239,68,68,0.12); color:#fca5a5; border-color: rgba(239,68,68,0.3);}
+        @keyframes gfPulseSoft { 0%,100%{box-shadow:0 0 0 rgba(52,211,153,0);} 50%{box-shadow:0 0 14px rgba(52,211,153,0.5);}}
+
+        /* Journey */
+        .gf-journey { margin-top:14px; }
+        .gf-journey .bar { position:relative; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; margin:18px 0 8px;}
+        .gf-journey .fill { height:100%; border-radius:3px; width:0;
+            background: linear-gradient(90deg,#3b82f6,#a78bfa,#34d399); transition: width 1.6s ease-out; box-shadow:0 0 12px #8b5cf6;}
+        .gf-journey .stops { display:flex; justify-content:space-between; font-size:.72rem; color:#94a3b8; letter-spacing:.5px;}
+        .gf-journey .stops span.active { color:#34d399; font-weight:700; text-shadow:0 0 8px rgba(52,211,153,0.6);}
+        .gf-journey .marker { position:absolute; top:-6px; width:18px; height:18px; border-radius:50%;
+            background: radial-gradient(circle,#fff,#34d399); transform: translateX(-50%); transition: left 1.6s ease-out;
+            box-shadow:0 0 16px #34d399;}
+
+        /* AI insight */
+        .gf-insight { margin-top:14px; padding:12px 14px; border-radius:12px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(16,185,129,0.10));
+            border:1px solid rgba(167,139,250,0.25); font-size:.85rem; color:#ddd6fe; line-height:1.55;
+            position:relative; }
+        .gf-insight::before { content:'🤖'; margin-right:6px; }
+    </style>
+</head>
+<body>
+
+<div class="container py-3">
+    <div class="page-header">
+        <h1>PCA Customer Analysis</h1>
+        <p>Dimensionality Reduction & Feature Optimization using Principal Component Analysis</p>
+    </div>
+
+    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tab1">Automated Analysis</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab2">Simulation & Recommendation</a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TAB 1 -->
+        <div class="tab-pane fade show active" id="tab1">
+            <div class="row g-3">
+                <div class="col-lg-8 fade-in-up">
+                    <div class="glass p-3 mb-3">
+                        <div id="scatterPlot"></div>
+                    </div>
+                    <div class="glass p-3">
+                        <h6 class="fw-bold mb-2" style="color:#c4b5fd;">Customer List</h6>
+                        <div style="max-height:220px;overflow-y:auto;">
+                            <table class="table table-sm mb-0">
+                                <thead><tr><th>Customer ID</th><th>Type</th><th>PC1</th><th>PC2</th></tr></thead>
+                                <tbody>
+                                {% for p in points %}
+                                <tr onclick="showPoint({{ p|tojson }})">
+                                    <td>{{ p.id }}</td>
+                                    <td><span class="badge badge-{{ p.label|lower }}">{{ p.label }}</span></td>
+                                    <td>{{ p.pc1 }}</td><td>{{ p.pc2 }}</td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 fade-in-up">
+                    <div class="glass p-3 mb-3">
+                        <h6 class="fw-bold mb-3" style="color:#c4b5fd;">Distribution</h6>
+                        {% for label, pct in distribution.items() %}
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge badge-{{ label|lower }}">
+                                {% if label == 'Budget' %}{% elif label == 'Impulsive' %}{% else %}{% endif %}
+                                {{ label }}
+                            </span>
+                            <span class="counter" data-target="{{ pct }}">0</span><span class="fw-bold">%</span>
+                        </div>
+                        <div class="progress mb-3">
+                            <div class="progress-bar badge-{{ label|lower }}" style="width:0%" data-width="{{ pct }}"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="glass p-3" id="pointInfo">
+                        <h6 class="fw-bold" style="color:#c4b5fd;">Customer Details</h6>
+                        <div class="mt-2">
+                            <p class="mb-1"><strong>ID:</strong> <span id="piId" class="text-white"></span></p>
+                            <p class="mb-1"><strong>Type:</strong> <span id="piType"></span></p>
+                            <p class="mb-1"><strong>PCA Vector:</strong> [<span id="piPCA" class="text-info"></span>]</p>
+                        </div>
+                        <hr style="border-color:rgba(255,255,255,0.1)">
+                        <h6 class="fw-bold" style="color:#c4b5fd;">📈 Features</h6>
+                        <ul id="piFeatures" class="list-unstyled small mt-1"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2 -->
+        <div class="tab-pane fade" id="tab2">
+            <div class="row g-3">
+                <div class="col-lg-5 fade-in-up">
+                    <div class="glass p-4 mb-3">
+                        <h6 class="fw-bold mb-3" style="color:#c4b5fd;">Select Customer Group</h6>
+                        <select id="groupSelect" class="form-select mb-4" onchange="loadGroupAvg()">
+                            <option value="">-- Choose --</option>
+                            <option value="Budget">Budget</option>
+                            <option value="Impulsive">Impulsive</option>
+                            <option value="Premium">Premium</option>
+                        </select>
+
+                        <h6 class="fw-bold mb-2" style="color:#c4b5fd;">Adjust Features (What-If)</h6>
+                        <div id="sliders"></div>
+
+                        <button class="btn btn-glow w-100 mt-3" onclick="runSimulation()">Run Simulation</button>
+                    </div>
+                </div>
+                <div class="col-lg-7 fade-in-up">
+                    <div class="glass p-4" id="simResult">
+                        <h5 class="fw-bold" style="color:#c4b5fd;">Prediction Result</h5>
+                        <p class="fs-4 mt-2">Predicted Type: <span id="resPred" class="fw-bold text-white"></span></p>
+                        <p>PCA: [<span id="resPCA" class="text-info"></span>]</p>
+                        <hr style="border-color:rgba(255,255,255,0.1)">
+                        <h6 class="fw-bold" style="color:#c4b5fd;">Recommended Offers</h6>
+                        <ul id="resOffers" class="mt-1"></ul>
+
+                        <!-- ========= PREMIUM CUSTOMER GROWTH FORECAST ========= -->
+                        <div id="growthForecast">
+                            <div class="gf-bg">
+                                <div class="gf-orb o1"></div>
+                                <div class="gf-orb o2"></div>
+                                <div class="gf-orb o3"></div>
+                                <div class="gf-particles" id="gfParticles"></div>
+                            </div>
+                            <div class="gf-inner">
+                                <div class="gf-title"><span class="dot"></span> AI Customer Growth Forecast</div>
+
+                                <div class="gf-upgrade">
+                                    <div class="gf-seg" id="gfSegCurrent">Current</div>
+                                    <div class="gf-arrow"></div>
+                                    <div class="gf-seg future" id="gfSegFuture">Future</div>
+                                </div>
+
+                                <div class="gf-grid">
+                                    <div class="gf-score">
+                                        <svg width="160" height="160" viewBox="0 0 160 160">
+                                            <defs>
+                                                <linearGradient id="gfGrad" x1="0" y1="0" x2="1" y2="1">
+                                                    <stop offset="0%" stop-color="#8b5cf6"/>
+                                                    <stop offset="60%" stop-color="#60a5fa"/>
+                                                    <stop offset="100%" stop-color="#34d399"/>
+                                                </linearGradient>
+                                            </defs>
+                                            <circle class="bg" cx="80" cy="80" r="68"/>
+                                            <circle class="fg" id="gfScoreCircle" cx="80" cy="80" r="68"
+                                                    stroke-dasharray="427" stroke-dashoffset="427"/>
+                                        </svg>
+                                        <div class="lbl">
+                                            <div class="num"><span id="gfScoreNum">0</span>%</div>
+                                            <div class="cap">Growth Potential</div>
+                                        </div>
+                                    </div>
+                                    <div class="gf-cards" id="gfCards"></div>
+                                </div>
+
+                                <div class="gf-journey">
+                                    <div class="stops">
+                                        <span id="jBudget">Budget</span>
+                                        <span id="jStandard">Standard</span>
+                                        <span id="jPremium">Premium</span>
+                                    </div>
+                                    <div class="bar">
+                                        <div class="fill" id="gfJourneyFill"></div>
+                                        <div class="marker" id="gfJourneyMarker" style="left:0%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="gf-insight" id="gfInsight"></div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-3" id="resStrategy"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// --- DATA from Flask ---
+const POINTS = {{ points|tojson }};
+const FEATURES = ["TotalSpend","PurchaseFrequency","AvgSpend","CategoryDiversity","Recency"];
+const RANGES = {TotalSpend:[0,10000],PurchaseFrequency:[1,50],AvgSpend:[0,500],CategoryDiversity:[1,20],Recency:[0,365]};
+
+const TYPE_COLORS = { Budget: '#3b82f6', Impulsive: '#f59e0b', Premium: '#10b981' };
+const TYPE_EMOJI = { Budget: '', Impulsive: '', Premium: '' };
+
+// --- PLOTLY SCATTER ---
+(function buildPlot() {
+    const groups = {};
+    POINTS.forEach(p => {
+        if (!groups[p.label]) groups[p.label] = { x:[], y:[], text:[], ids:[] };
+        groups[p.label].x.push(p.pc1);
+        groups[p.label].y.push(p.pc2);
+        groups[p.label].text.push(
+            `<b>Customer ${p.id}</b><br>Type: ${p.label}<br>PC1: ${p.pc1}<br>PC2: ${p.pc2}`
+        );
+        groups[p.label].ids.push(p.id);
+    });
+
+    const traces = Object.keys(groups).map(label => ({
+        x: groups[label].x,
+        y: groups[label].y,
+        text: groups[label].text,
+        customdata: groups[label].ids,
+        mode: 'markers',
+        type: 'scatter',
+        name: `${TYPE_EMOJI[label]} ${label}`,
+        marker: {
+            color: TYPE_COLORS[label],
+            size: 10,
+            opacity: 0.8,
+            line: { color: 'rgba(255,255,255,0.3)', width: 1 }
+        },
+        hovertemplate: '%{text}<extra></extra>'
+    }));
+
+    const layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0.15)',
+        font: { color: '#94a3b8', family: 'Inter' },
+        xaxis: { title: 'PCA Component 1', gridcolor: 'rgba(255,255,255,0.06)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        yaxis: { title: 'PCA Component 2', gridcolor: 'rgba(255,255,255,0.06)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 12 } },
+        margin: { t: 20, r: 20, b: 50, l: 60 },
+        dragmode: 'pan',
+        hovermode: 'closest'
+    };
+
+    Plotly.newPlot('scatterPlot', traces, layout, {
+        responsive: true,
+        scrollZoom: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d','select2d'],
+        displaylogo: false
+    });
+
+    // Click event
+    document.getElementById('scatterPlot').on('plotly_click', function(data) {
+        const pt = data.points[0];
+        const cid = pt.customdata;
+        const match = POINTS.find(p => p.id === cid);
+        if (match) showPoint(match);
+    });
+})();
+
+// --- SHOW POINT DETAILS ---
+function showPoint(p) {
+    const card = document.getElementById("pointInfo");
+    card.classList.add("visible");
+    card.style.display = "block";
+    document.getElementById("piId").textContent = p.id;
+    document.getElementById("piType").innerHTML =
+        `<span class="badge badge-${p.label.toLowerCase()}">${TYPE_EMOJI[p.label]} ${p.label}</span>`;
+    document.getElementById("piPCA").textContent = p.pc1 + ", " + p.pc2;
+    const ul = document.getElementById("piFeatures");
+    ul.innerHTML = "";
+    for (const [k, v] of Object.entries(p.features)) {
+        ul.innerHTML += `<li class="mb-1"><strong>${k}:</strong> ${v}</li>`;
+    }
+}
+
+// --- ANIMATED COUNTERS ---
+function animateCounters() {
+    document.querySelectorAll('.counter').forEach(el => {
+        const target = parseFloat(el.dataset.target);
+        const duration = 1200;
+        const start = performance.now();
+        function tick(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = (target * eased).toFixed(1);
+            if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    });
+}
+
+// --- ANIMATED PROGRESS BARS ---
+function animateProgressBars() {
+    document.querySelectorAll('.progress-bar[data-width]').forEach(bar => {
+        setTimeout(() => { bar.style.transition = 'width 1.2s ease-out'; bar.style.width = bar.dataset.width + '%'; }, 200);
+    });
+}
+
+// --- ON LOAD ---
+window.addEventListener('DOMContentLoaded', () => {
+    animateCounters();
+    animateProgressBars();
+});
+
+// --- SLIDERS ---
+(function() {
+    const c = document.getElementById("sliders");
+    FEATURES.forEach(f => {
+        const [mn, mx] = RANGES[f];
+        c.innerHTML += `<div class="mb-2"><label class="slider-label">${f}: <span id="val_${f}">${Math.round((mn+mx)/2)}</span></label>
+        <input type="range" class="form-range" id="sl_${f}" min="${mn}" max="${mx}" value="${Math.round((mn+mx)/2)}" step="1"
+        oninput="document.getElementById('val_${f}').textContent=this.value"></div>`;
+    });
+})();
+
+// --- GROUP AVG ---
+async function loadGroupAvg() {
+    const g = document.getElementById("groupSelect").value;
+    if (!g) return;
+    const r = await fetch("/api/group_avg/" + g);
+    const d = await r.json();
+    FEATURES.forEach(f => {
+        const sl = document.getElementById("sl_" + f);
+        sl.value = Math.round(d[f]);
+        document.getElementById("val_" + f).textContent = Math.round(d[f]);
+    });
+}
+
+// --- SIMULATION ---
+async function runSimulation() {
+    const body = {};
+    FEATURES.forEach(f => body[f] = parseFloat(document.getElementById("sl_" + f).value));
+    const r = await fetch("/api/simulate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    const card = document.getElementById("simResult");
+    card.classList.add("visible");
+    card.style.display = "block";
+    const emoji = TYPE_EMOJI[d.predicted] || '';
+    document.getElementById("resPred").innerHTML =
+        `<span class="badge badge-${d.predicted.toLowerCase()}" style="font-size:1.1rem;padding:8px 18px;">${emoji} ${d.predicted}</span>`;
+    document.getElementById("resPCA").textContent = d.pc1 + ", " + d.pc2;
+    const ul = document.getElementById("resOffers"); ul.innerHTML = "";
+    d.offers.forEach(o => ul.innerHTML += `<li class="mb-1">${o}</li>`);
+    document.getElementById("resStrategy").textContent = "" + d.strategy;
+    renderGrowthForecast(body, d.predicted);
+}
+
+// ===== GROWTH FORECAST =====
+const SEG_LABEL = { Budget:'Budget', Impulsive:'Impulsive', Premium:'Premium' };
+const SEG_POS = { Budget: 0, Impulsive: 50, Premium: 100 };
+const FEATURE_ICONS = { TotalSpend:'', PurchaseFrequency:'', AvgSpend:'', CategoryDiversity:'', Recency:'' };
+
+function projectFuture(curr, predicted) {
+    const targets = { TotalSpend: 5200, PurchaseFrequency: 22, AvgSpend: 380, CategoryDiversity: 15, Recency: 20 };
+    const future = {};
+    FEATURES.forEach(f => {
+        const c = curr[f], t = targets[f];
+        if (f === 'Recency') future[f] = Math.max(5, Math.round(c * 0.55));
+        else {
+            let nv = c + (t - c) * 0.55;
+            if (nv < c * 1.15) nv = c * 1.45;
+            future[f] = Math.round(nv);
+        }
+    });
+    const nextSeg = 'Premium';
+    return { future, nextSeg };
+}
+
+function animateNumber(el, from, to, dur=1200, suffix='') {
+    const start = performance.now();
+    function tick(now) {
+        const p = Math.min((now - start) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const v = from + (to - from) * eased;
+        el.textContent = (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
+function spawnParticles() {
+    const host = document.getElementById('gfParticles');
+    if (!host || host.dataset.done) return;
+    host.dataset.done = '1';
+    for (let i = 0; i < 18; i++) {
+        const s = document.createElement('span');
+        s.style.left = Math.random()*100 + '%';
+        s.style.bottom = '-10px';
+        s.style.animationDelay = (Math.random()*7) + 's';
+        s.style.animationDuration = (5 + Math.random()*5) + 's';
+        host.appendChild(s);
+    }
+}
+
+function renderGrowthForecast(curr, predicted) {
+    const wrap = document.getElementById('growthForecast');
+    wrap.classList.remove('visible'); void wrap.offsetWidth;
+    wrap.classList.add('visible');
+    spawnParticles();
+
+    const { future, nextSeg } = projectFuture(curr, predicted);
+
+    document.getElementById('gfSegCurrent').innerHTML =
+        `<span class="badge badge-${predicted.toLowerCase()}">${SEG_LABEL[predicted]}</span>`;
+    document.getElementById('gfSegFuture').innerHTML =
+        `<span class="badge badge-${nextSeg.toLowerCase()}">${SEG_LABEL[nextSeg]}</span>`;
+
+    const cardsHost = document.getElementById('gfCards');
+    cardsHost.innerHTML = '';
+    FEATURES.forEach(f => {
+        const oldV = curr[f], newV = future[f];
+        const improving = (f === 'Recency') ? newV < oldV : newV > oldV;
+        const pct = oldV === 0 ? 0 : Math.round(((newV - oldV) / oldV) * 100);
+        const pctTxt = (pct > 0 ? '↑ +' : (pct < 0 ? '↓ ' : '')) + pct + '%';
+        cardsHost.insertAdjacentHTML('beforeend', `
+          <div class="gf-card">
+            <div class="ico">${FEATURE_ICONS[f]}</div>
+            <div class="name">${f}</div>
+            <div class="vals"><span class="old">${oldV}</span><span class="arr">→</span><span class="new" id="gfNew_${f}">${oldV}</span></div>
+            <div class="pct ${improving ? '' : 'down'}">${pctTxt}</div>
+          </div>`);
+    });
+    FEATURES.forEach(f => animateNumber(document.getElementById('gfNew_' + f), curr[f], future[f], 1400));
+
+    let totalImp = 0, n = 0;
+    FEATURES.forEach(f => {
+        const o = curr[f], nw = future[f];
+        if (o === 0) return;
+        const imp = (f === 'Recency') ? (o - nw)/o : (nw - o)/o;
+        totalImp += Math.max(0, imp); n++;
+    });
+    const score = Math.min(99, Math.round((totalImp / n) * 100 + 25));
+    const circ = document.getElementById('gfScoreCircle');
+    const C = 2 * Math.PI * 68;
+    circ.style.strokeDasharray = C;
+    circ.style.strokeDashoffset = C;
+    requestAnimationFrame(() => { circ.style.strokeDashoffset = C * (1 - score/100); });
+    animateNumber(document.getElementById('gfScoreNum'), 0, score, 1500);
+
+    const fill = document.getElementById('gfJourneyFill');
+    const marker = document.getElementById('gfJourneyMarker');
+    const targetPos = SEG_POS[nextSeg];
+    fill.style.width = '0%'; marker.style.left = SEG_POS[predicted] + '%';
+    requestAnimationFrame(() => {
+        fill.style.width = targetPos + '%';
+        marker.style.left = targetPos + '%';
+    });
+    ['jBudget','jStandard','jPremium'].forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById(nextSeg === 'Premium' ? 'jPremium' : (nextSeg === 'Impulsive' ? 'jStandard' : 'jBudget')).classList.add('active');
+
+    document.getElementById('gfInsight').innerHTML =
+        `Based on current behavior patterns, this customer shows a <b style="color:#34d399">${score}%</b> growth potential and is likely to transition into the <b style="color:#a78bfa">${nextSeg}</b> segment within <b>3–6 months</b> if recommended actions are followed.`;
+}
+</script>
+</body>
+</html>
