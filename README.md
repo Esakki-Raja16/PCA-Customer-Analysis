@@ -5,6 +5,21 @@ An AI-powered customer segmentation and behavioral forecasting dashboard built u
 This project transforms raw customer behavior data into actionable business insights through dynamic visualization, customer clustering, predictive simulations, and futuristic analytics dashboards.
 
 ---
+# Project Preview
+
+## Main Dashboard
+![Dashboard](assets/dashboard.png)
+
+## Automated Analysis
+![Analysis](assets/analysis.png)
+
+## Simulation Engine
+![Simulation](assets/simulation.png)
+
+## AI Customer Growth Forecast
+![Growth Forecast](assets/growth-forecast.png)
+
+---
 
 # Project Overview
 
